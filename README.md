@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # File System with RAID 5 Implementation
 
 ## Project Overview
@@ -254,6 +253,3 @@ This project is for educational purposes as part of a Computer System Design cou
 ---
 
 **Note**: This is a simplified implementation for educational purposes. Production RAID systems have additional features like hot spares, multiple failure handling, and advanced error correction. 
-=======
-# distributed-raid5-filesystem
->>>>>>> 9f7253217650055a3c11b2962c780097626f5544
