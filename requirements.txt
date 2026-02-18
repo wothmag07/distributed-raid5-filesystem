@@ -1,0 +1,3 @@
+# Python 3.6+ required
+# Runtime: standard library only (xmlrpc, pickle, hashlib, argparse, logging, socket)
+# No third-party dependencies needed

@@ -1,12 +1,11 @@
 import fsconfig
 import os.path
-
-from block import *
-from inode import *
-from inodenumber import *
-from filename import *
-from fileoperations import *
-from absolutepath import *
+from block import DiskBlocks
+from inode import Inode
+from inodenumber import InodeNumber
+from filename import FileName
+from fileoperations import FileOperations
+from absolutepath import AbsolutePathName
 
 ## This class implements an interactive shell to navigate the file system
 
@@ -106,7 +105,7 @@ class FSShell():
     # file operations
     # implements cd (change directory)
     def cd(self, dir):
-        i = self.AbsolutePathObject.PathNameToInodeNumber(dir, self.cwd)
+        i = self.AbsolutePathObject.GeneralPathToInodeNumber(dir, self.cwd)
         if i == -1:
             print("Error: not found\n")
             return -1
@@ -151,7 +150,7 @@ class FSShell():
 
     # implements cat (print file contents)
     def cat(self, filename):
-        i = self.AbsolutePathObject.PathNameToInodeNumber(filename, self.cwd)
+        i = self.AbsolutePathObject.GeneralPathToInodeNumber(filename, self.cwd)
         if i == -1:
             print("Error: not found\n")
             return -1
@@ -185,7 +184,7 @@ class FSShell():
 
     # implements append
     def append(self, filename, string):
-        i = self.AbsolutePathObject.PathNameToInodeNumber(filename, self.cwd)
+        i = self.AbsolutePathObject.GeneralPathToInodeNumber(filename, self.cwd)
         if i == -1:
             print("Error: not found\n")
             return -1
@@ -213,7 +212,7 @@ class FSShell():
         except ValueError:
             print('Error: ' + count + ' not a valid Integer')
             return -1
-        i = self.AbsolutePathObject.PathNameToInodeNumber(filename, self.cwd)
+        i = self.AbsolutePathObject.GeneralPathToInodeNumber(filename, self.cwd)
         if i == -1:
             print("Error: not found\n")
             return -1
@@ -230,7 +229,7 @@ class FSShell():
 
     # implements mirror filename (mirror the contents of a file)
     def mirror(self, filename):
-        i = self.AbsolutePathObject.PathNameToInodeNumber(filename, self.cwd)
+        i = self.AbsolutePathObject.GeneralPathToInodeNumber(filename, self.cwd)
         if i == -1:
             print("Error: not found\n")
             return -1
@@ -288,12 +287,20 @@ class FSShell():
 
         server_port = fsconfig.STARTPORT + server_id
 
+        # Track which stripes have already been repaired for this server to avoid redundant work
+        repaired_stripes = set()
+
         # Iterate over all blocks
         for block_number in range(fsconfig.TOTAL_NUM_BLOCKS):
             data_server_index, stripe_number, parity_server_index = self.RawBlocks.getServerBlockAndParity(block_number)
 
             # Check if this block belongs to the failed server
             if data_server_index == server_id or parity_server_index == server_id:
+                # Skip if we already repaired this stripe for this server
+                if stripe_number in repaired_stripes:
+                    continue
+                repaired_stripes.add(stripe_number)
+
                 print(f"Reconstructing block {block_number} on server {server_id}...")
 
                 try:
@@ -334,10 +341,12 @@ class FSShell():
 
                     print(f"Successfully repaired block {block_number} on server {server_id}")
 
-                except Exception as e:
+                except (ConnectionRefusedError, ValueError, TypeError) as e:
                     print(f"Error reconstructing block {block_number}: {str(e)}")
                     return -1
 
+        # Clear the server from the failed_servers tracking so future operations use it normally
+        self.RawBlocks.failed_servers.discard(server_id)
         print(f"Repair completed for server {server_id}")
         return 0
 
@@ -400,23 +409,32 @@ class FSShell():
                 if len(splitcmd) != 2:
                     print("Error: mkdir requires one argument")
                 else:
-                    self.RawBlocks.Acquire()
-                    self.mkdir(splitcmd[1])
-                    self.RawBlocks.Release()
+                    if len(splitcmd[1]) > fsconfig.MAX_FILENAME:
+                        print("Error: filename exceeds maximum length of " + str(fsconfig.MAX_FILENAME) + " characters")
+                    else:
+                        self.RawBlocks.Acquire()
+                        self.mkdir(splitcmd[1])
+                        self.RawBlocks.Release()
             elif splitcmd[0] == "create":
                 if len(splitcmd) != 2:
                     print("Error: create requires one argument")
                 else:
-                    self.RawBlocks.Acquire()
-                    self.create(splitcmd[1])
-                    self.RawBlocks.Release()
+                    if len(splitcmd[1]) > fsconfig.MAX_FILENAME:
+                        print("Error: filename exceeds maximum length of " + str(fsconfig.MAX_FILENAME) + " characters")
+                    else:
+                        self.RawBlocks.Acquire()
+                        self.create(splitcmd[1])
+                        self.RawBlocks.Release()
             elif splitcmd[0] == "append":
                 if len(splitcmd) != 3:
                     print("Error: append requires two arguments")
                 else:
-                    self.RawBlocks.Acquire()
-                    self.append(splitcmd[1], splitcmd[2])
-                    self.RawBlocks.Release()
+                    if len(splitcmd[1]) > fsconfig.MAX_FILENAME:
+                        print("Error: filename exceeds maximum length of " + str(fsconfig.MAX_FILENAME) + " characters")
+                    else:
+                        self.RawBlocks.Acquire()
+                        self.append(splitcmd[1], splitcmd[2])
+                        self.RawBlocks.Release()
             elif splitcmd[0] == "slice":
                 if len(splitcmd) != 4:
                     print ("Error: slice requires three arguments")
@@ -442,16 +460,22 @@ class FSShell():
                 if len(splitcmd) != 3:
                     print("Error: lnh requires two arguments")
                 else:
-                    self.RawBlocks.Acquire()
-                    self.lnh(splitcmd[1], splitcmd[2])
-                    self.RawBlocks.Release()
+                    if len(splitcmd[2]) > fsconfig.MAX_FILENAME:
+                        print("Error: filename exceeds maximum length of " + str(fsconfig.MAX_FILENAME) + " characters")
+                    else:
+                        self.RawBlocks.Acquire()
+                        self.lnh(splitcmd[1], splitcmd[2])
+                        self.RawBlocks.Release()
             elif splitcmd[0] == "lns":
                 if len(splitcmd) != 3:
                     print("Error: lns requires two arguments")
                 else:
-                    self.RawBlocks.Acquire()
-                    self.lns(splitcmd[1], splitcmd[2])
-                    self.RawBlocks.Release()
+                    if len(splitcmd[2]) > fsconfig.MAX_FILENAME:
+                        print("Error: filename exceeds maximum length of " + str(fsconfig.MAX_FILENAME) + " characters")
+                    else:
+                        self.RawBlocks.Acquire()
+                        self.lns(splitcmd[1], splitcmd[2])
+                        self.RawBlocks.Release()
             elif splitcmd[0] == "repair":
                 if len(splitcmd) != 2:
                     print("Error: repair requires one argument (server ID)")
@@ -471,10 +495,25 @@ class FSShell():
                             print(f"RAID 5 consistency check failed for block {block_num}")
                     except ValueError:
                         print("Error: block number must be an integer")
-
+            elif splitcmd[0] == "verifyall":
+                if len(splitcmd) != 1:
+                    print("Error: verifyall does not require arguments")
+                else:
+                    checked_stripes = set()
+                    all_consistent = True
+                    for block_number in range(fsconfig.TOTAL_NUM_BLOCKS):
+                        _, stripe_number, _ = self.RawBlocks.getServerBlockAndParity(block_number)
+                        if stripe_number in checked_stripes:
+                            continue
+                        checked_stripes.add(stripe_number)
+                        if not self.RawBlocks.verifyRAID5Consistency(block_number):
+                            print(f"RAID 5 consistency check FAILED for block {block_number} (stripe {stripe_number})")
+                            all_consistent = False
+                    if all_consistent:
+                        print("All RAID 5 stripes are consistent")
+                    else:
+                        print("RAID 5 consistency check completed with failures")
             elif splitcmd[0] == "exit":
                 return
             else:
                 print ("command " + splitcmd[0] + " not valid.\n")
-
-

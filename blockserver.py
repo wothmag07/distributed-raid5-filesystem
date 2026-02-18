@@ -112,6 +112,8 @@ if __name__ == "__main__":
 
 
     def Put(block_number, data):
+        if block_number < 0 or block_number >= len(RawBlocks.block):
+            raise ValueError(f"Block {block_number} out of range")
         RawBlocks.block[block_number] = data.data
         RawBlocks.checksum[block_number] = RawBlocks.compute_checksum(data.data)
         RawBlocks.Sleep()

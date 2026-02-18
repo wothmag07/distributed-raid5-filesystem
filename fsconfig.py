@@ -47,6 +47,8 @@ def ConfigureFSConstants(args):
         STARTPORT = args.startport
     if args.no_of_servers:
         NO_OF_SERVERS = args.no_of_servers
+    if hasattr(args, 'server_address') and args.server_address:
+        SERVER_ADDRESS = args.server_address
 
     # These are constants that SHOULD NEVER BE MODIFIED
     global MAX_FILENAME, INODE_NUMBER_DIRENTRY_SIZE, FREEBITMAP_BLOCK_OFFSET, INODE_BYTES_SIZE_TYPE_REFCNT, \
@@ -117,8 +119,9 @@ def ConfigureFSConstants(args):
     RSM_UNLOCKED = bytearray(b'\x00') * 1
     RSM_LOCKED = bytearray(b'\x01') * 1
 
-    # server address - default is 127.0.0.1, localhost
-    SERVER_ADDRESS = '127.0.0.1'
+    # server address - default is 127.0.0.1, localhost; can be overridden via -sa arg
+    if 'SERVER_ADDRESS' not in dir() or not SERVER_ADDRESS:
+        SERVER_ADDRESS = '127.0.0.1'
     MAX_CLIENTS = 8
     SOCKET_TIMEOUT = 5
     RETRY_INTERVAL = 10

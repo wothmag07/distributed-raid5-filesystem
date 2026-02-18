@@ -2,11 +2,11 @@ import pickle, logging
 import argparse
 import fsconfig
 
-from block import *
-from shell import *
-from filename import *
-from fileoperations import *
-from absolutepath import *
+from block import DiskBlocks
+from shell import FSShell
+from filename import FileName
+from fileoperations import FileOperations
+from absolutepath import AbsolutePathName
 
 import os.path
 
@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     # Initialize file for logging
     # Change logging level to INFO to remove debugging messages
-    logging.basicConfig(filename='memoryfs.log', filemode='w', level=logging.DEBUG)
+    logging.basicConfig(filename='memoryfs.log', filemode='a', level=logging.DEBUG)
 
 
     # Redirect INFO logs to console as well
@@ -32,6 +32,7 @@ if __name__ == "__main__":
     ap.add_argument('-port', '--port', type=int, help='an integer value')
     ap.add_argument('-startport', '--startport', type=int, help='server port')
     ap.add_argument('-ns', '--no_of_servers',type=int, help='no of servers')
+    ap.add_argument('-sa', '--server_address', type=str, help='server address')
 
     # Other than FS args, consecutive args will be captured in by 'arg' as list
     ap.add_argument('arg', nargs='*')
@@ -56,8 +57,8 @@ if __name__ == "__main__":
     # Create a FileOperations object
     FileOperationsObject = FileOperations(FileObject)
 
-    # Create a AbsolutePath object
-    AbsolutePathObject = AbsolutePathName(FileObject)
+    # Create an AbsolutePath object
+    AbsolutePathObject = AbsolutePathName(FileObject, RawBlocks)
 
     # Run the interactive shell interpreter
     myshell = FSShell(RawBlocks, FileOperationsObject, AbsolutePathObject)
